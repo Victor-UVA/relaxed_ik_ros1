@@ -1,6 +1,6 @@
 #! /usr/bin/env python
 
-from math import cos, sin
+import math
 from enum import Enum, auto
 import numpy as np
 import rospy
@@ -8,7 +8,7 @@ from relaxed_ik_ros1.msg import EEPoseGoals
 from geometry_msgs.msg import Pose, PoseArray
 from std_msgs import Float32
 import tf2_ros
-from geometry_msgs.msg import TransformStamped, PoseWithCovariance
+import tf_conversions
 
 
 class States(Enum):
@@ -27,17 +27,18 @@ class Arm:
         self.ee_pose_goals_pub = rospy.Publisher(
             '/relaxed_ik/ee_pose_goals', EEPoseGoals, queue_size=10)
 
-    def send_goal(self, x, y, z, seq, w=1, x_q=0, y_q=0, z_q=0):
+    def send_goal(self, x, y, z, seq, x_q=0, y_q=0, z_q=0):
         ee_pose = Pose()
         ee_pose_goal = EEPoseGoals()
         ee_pose.position.x = x
         ee_pose.position.y = y
         ee_pose.position.z = z
-        # q = tf_conversions.transformations.quaternion_from_euler()
-        ee_pose.orientation.w = w
-        ee_pose.orientation.x = x_q
-        ee_pose.orientation.y = y_q
-        ee_pose.orientation.z = z_q
+        q = tf_conversions.transformations.quaternion_from_euler(
+            x_q, y_q, z_q)
+        ee_pose.orientation.w = float(q[0])
+        ee_pose.orientation.x = float(q[1])
+        ee_pose.orientation.y = float(q[2])
+        ee_pose.orientation.z = float(q[2])
 
         ee_pose_goal.header.seq = seq
         ee_pose_goal.ee_poses.append(ee_pose)
@@ -48,8 +49,8 @@ def create_arc(handle_pose, handle_to_hinge, num_angles):
     trajectory = []
     angles = np.linspace(0, 90, num_angles)
     for angle in angles:
-        trajectory.append([handle_pose[0] + handle_to_hinge*cos(angle),
-                           handle_pose[1] + handle_to_hinge*sin(angle), handle_pose[2]])
+        trajectory.append([handle_pose[0] + handle_to_hinge*math.cos(angle),
+                           handle_pose[1] + handle_to_hinge*math.sin(angle), handle_pose[2]])
     return trajectory
 
 
@@ -72,14 +73,16 @@ if __name__ == "__main__":
     num_angles = 180
     while not rospy.is_shutdown():
         if arm.state == States.PLANNING:
-            # Get position of handle relative to camera frame
-            handle_pose = rospy.wait_for_message("camera/handle_pose", Pose)
-            # Transform to world/map frame and then to arm start pose
-            handle_pose = pose_lookup(
-                "ur_arm_starting_pose", "camera/handle_pose")  # frame
-            # Get dimensions of door
-            handle_to_hinge = rospy.wait_for_message(
-                "handle_to_hinge", Float32)
+            # # Get position of handle relative to camera frame
+            # handle_pose = rospy.wait_for_message("camera/handle_pose", Pose)
+            # # Transform to world/map frame and then to arm start pose
+            # handle_pose = pose_lookup(
+            #     "ur_arm_starting_pose", "camera/handle_pose")  # frame
+            # # Get dimensions of door
+            # handle_to_hinge = rospy.wait_for_message(
+            #     "handle_to_hinge", Float32)
+            handle_pose = [0.09, 0.25, -0.12]
+            handle_to_hinge = 0.4
             # Create arc
             trajectory = create_arc(handle_pose, handle_to_hinge, num_angles)
             arm.state = States.MOVE_TO_HANDLE
