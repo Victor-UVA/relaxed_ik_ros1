@@ -1,0 +1,22 @@
+<launch>
+
+    <include file="$(find husky_base)/launch/husky_navstack.launch"/>
+
+    <!-- <include file="$(find husky_base)/launch/relaxed_husky_ur.launch"/> -->
+
+    <!-- <include file="$(find relaxed_ik_ros1)/launch/relaxed_ik_rust.launch"/> -->
+
+    <!-- <param name="/simulation_time"  type="str"  value="go"/> -->
+
+    <!-- <node pkg="relaxed_ik_ros1" type="ur_interface.py" name="ur_interface"/> -->
+
+    <include file="$(find relaxed_ik_ros1)/launch/l515.launch"/>
+
+    <include file="$(find relaxed_ik_ros1)/launch/ouster.launch">
+        <arg name="sensor_hostname" value="os1-122017000251.local"/>
+        <arg name="udp_dest" value="192.168.1.100"/>
+    </include>
+
+    <node pkg="relaxed_ik_ros1" type="joystick_move.py" name="joystick_move"/>
+
+</launch>

@@ -1,0 +1,76 @@
+
+<launch>
+  
+    <!-- 
+    Hand-held 3D lidar mapping example using only a Ouster GEN2 (no camera).
+    Prerequisities: rtabmap should be built with libpointmatcher
+    
+    Example:
+    
+      $ roslaunch rtabmap_ros test_ouster_gen2.launch sensor_hostname:=os-XXXXXXXXXXXX.local udp_dest:=192.168.1.XXX
+      $ rosrun rviz rviz -f map
+      RVIZ: Show TF and /rtabmap/cloud_map topics
+    
+    ISSUE: You may have to reset odometry after receiving the first cloud if the map looks tilted. The problem seems 
+           coming from the first cloud sent by os_cloud_node, which may be poorly synchronized with IMU data.
+           
+    PTP mode (synchronize timestamp with host computer time)
+    
+      * Install:
+      
+        $ sudo apt install linuxptp httpie
+        $ printf "[global]\ntx_timestamp_timeout 10\n" >> ~/os.conf
+      
+      * Running:
+     
+        (replace "XXXXXXXXXXXX" by your ouster serial, as well as XXX by its IP address)
+        (replace "eth0" by the network interface used to communicate with ouster)
+       
+        $ http PUT http://os-XXXXXXXXXXXX.local/api/v1/time/ptp/profile <<< '"default-relaxed"'
+        $ sudo ptp4l -i eth0 -m -f ~/os.conf -S
+        $ roslaunch rtabmap_ros test_ouster_gen2.launch sensor_hostname:=os-XXXXXXXXXXXX.local udp_dest:=192.168.1.XXX ptp:=true
+       
+    -->
+
+    <arg name="use_sim_time"  default="false"/>
+
+    <!-- Required: -->
+    <arg unless="$(arg use_sim_time)" name="sensor_hostname"/>
+    <arg unless="$(arg use_sim_time)" name="udp_dest"/>
+
+    <arg name="frame_id"      default="os_sensor"/>
+    <arg name="rtabmapviz"    default="true"/>
+    <arg name="scan_20_hz"    default="false"/>
+    <arg name="voxel_size"    default="0.15"/>           <!-- indoor: 0.1 to 0.3, outdoor: 0.3 to 0.5 --> 
+    <arg name="assemble"      default="false"/>
+    <arg name="ptp"           default="false"/>          <!-- See comments in header to start before launching the launch -->
+    <arg name="distortion_correction"  default="false"/> <!-- Requires this pull request: https://github.com/ouster-lidar/ouster_example/pull/245 -->
+    
+    <param if="$(arg use_sim_time)" name="use_sim_time" value="true"/>
+    
+    <!-- Ouster -->
+    <include unless="$(arg use_sim_time)" file="$(find ouster_ros)/ouster.launch">
+      <arg name="sensor_hostname" value="$(arg sensor_hostname)"/>
+      <arg name="udp_dest" value="$(arg udp_dest)"/>
+      <arg     if="$(arg scan_20_hz)" name="lidar_mode" value="1024x20"/>
+      <arg unless="$(arg scan_20_hz)" name="lidar_mode" value="1024x10"/>
+      <arg if="$(arg ptp)" name="timestamp_mode" value="TIME_FROM_PTP_1588"/>
+      <arg if="$(arg distortion_correction)" name="fixed_frame_id" value="$(arg frame_id)_stabilized"/>
+    </include>
+
+    <node pkg="nodelet" type="nodelet" name="imu_nodelet_manager" args="manager">
+      <remap from="imu/data_raw" to="/os_cloud_node/imu"/>
+      <remap from="imu/data" to="/os_cloud_node/imu/data"/>
+    </node>
+    <node pkg="nodelet" type="nodelet" name="imu_filter" args="load imu_filter_madgwick/ImuFilterNodelet imu_nodelet_manager">
+      <param name="use_mag" value="false"/>
+      <param name="world_frame" value="enu"/>
+      <param name="publish_tf" value="false"/>
+    </node>
+    <node pkg="nodelet" type="nodelet" name="imu_to_tf" args="load rtabmap_ros/imu_to_tf imu_nodelet_manager">
+      <remap from="imu/data" to="/os_cloud_node/imu/data"/>
+      <param name="fixed_frame_id" value="$(arg frame_id)_stabilized"/>
+      <param name="base_frame_id" value="$(arg frame_id)"/>
+    </node> 
+
+</launch>
