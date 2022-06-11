@@ -1,4 +1,4 @@
-#! /usr/bin/env python
+#!/usr/bin/env python3
 '''
 author: Danny Rakita, Haochen Shi
 email: rakita@cs.wisc.edu, hshi74@wisc.edu
