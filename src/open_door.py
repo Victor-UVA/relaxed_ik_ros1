@@ -159,14 +159,17 @@ if __name__ == "__main__":
             # Move EE to right above handle to be able to hook handle
             arm.send_goal(
                 handle_arc[0][0], handle_arc[0][1], handle_arc[0][2]+0.1)
+
             # Move EE to first arc point
             arm.send_goal(*handle_arc[0])
             arm.state = States.UNLATCH
+
         elif arm.state == States.UNLATCH:
             rospy.loginfo("Unlatching")
             # Rotate EE Clockwise
             arm.send_goal(*handle_arc[0], y_q=math.pi/2)
             arm.state = States.PULL
+
         elif arm.state == States.PULL:
             rospy.loginfo("Pulling")
             # Follow trajectory before collision angle
@@ -174,18 +177,22 @@ if __name__ == "__main__":
                 arm.send_goal(*handle_arc[i], y_q=math.pi/2)
             rospy.loginfo("Pull completed")
             arm.state = States.MOVE_AROUND
+
         elif arm.state == States.MOVE_AROUND:
             rospy.loginfo("Unhooking")
             # Unhook EE from handle
             arm.send_goal(handle_arc[collision_index-1][0], handle_arc[collision_index-1]
                           [1], handle_arc[collision_index-1][2]+0.1, y_q=-math.pi/2)
-            arm.ee.send_to_home()               # send to home position
-            rospy.sleep(10)                    # Wait for 10 seconds
+            # Home arm
+            arm.ee.send_to_home()
+            rospy.sleep(10)
             arm.ee.send_transforms()
+
             # Move to other side of door
             rospy.loginfo("Starting base movement")
             client.send_goal(generate_goal(1.0, 0.0, frame="map"))
             arm.state = States.PUSH
+
         elif arm.state == States.PUSH:
             rospy.loginfo("Pushing")
             # Follow remaining trajectory pushing parallel to ground
@@ -193,6 +200,7 @@ if __name__ == "__main__":
                 arm.send_goal(handle_arc[i][0], handle_arc[i]
                               [1], handle_arc[i][2]-0.3)  # TODO: use the z component of ur_base
             arm.state = States.DONE
+
         elif arm.state == States.DONE:
             rospy.signal_shutdown("Done")
         rospy.sleep(5)
