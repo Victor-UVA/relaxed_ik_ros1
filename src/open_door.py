@@ -12,6 +12,7 @@ import tf_conversions
 import actionlib
 from actionlib_msgs.msg import *
 from move_base_msgs.msg import MoveBaseAction, MoveBaseGoal
+from ur_interface import end_effector
 
 
 class States(Enum):
@@ -31,6 +32,7 @@ class Arm:
         self.ee_pose_goals_pub = rospy.Publisher(
             '/relaxed_ik/ee_pose_goals', EEPoseGoals, queue_size=10)
         self.seq = 0
+        self.ee = end_effector()
 
     def send_goal(self, x, y, z, seq, x_q=0, y_q=0, z_q=0):
         ee_pose = Pose()
@@ -177,6 +179,9 @@ if __name__ == "__main__":
             # Unhook EE from handle
             arm.send_goal(handle_arc[collision_index-1][0], handle_arc[collision_index-1]
                           [1], handle_arc[collision_index-1][2]+0.1, y_q=-math.pi/2)
+            arm.ee.send_to_home()               # send to home position
+            rospy.sleep(10)                    # Wait for 10 seconds
+            arm.ee.send_transforms()
             # Move to other side of door
             rospy.loginfo("Starting base movement")
             client.send_goal(generate_goal(1.0, 0.0, frame="map"))
