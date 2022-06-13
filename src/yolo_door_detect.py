@@ -86,7 +86,7 @@ class Tracker3D():
 		self.depth_sub = rospy.Subscriber(depth_topic_name,Image,self.depth_cb)
 		self.camerainfo_sub = rospy.Subscriber(camerainfo_topic_name,CameraInfo,self.camerainfo_cb)
 		# self.depth_cam_info = rospy.Subscriber(depth_camera_topic,self.depth_cam_cb)
-		self.pos_pub = rospy.Publisher('ballxyz',PoseWithCovariance,queue_size=10)
+		self.pos_pub = rospy.Publisher('doorxyz',PoseWithCovariance,queue_size=10)
 		self.viz_pub = rospy.Publisher('ball_maker',Marker,queue_size=10)
 		self.ballloc_pixel = [0,0]
 		self.ballloc_xyz = [0,0,0]
@@ -182,14 +182,11 @@ class Tracker3D():
 
 		self.error = max(self.min_error,(self.d-0.3)*self.min_error)
 
-	def pub_xy(self):
+	def pub_xyz(self, x, y, z):
 		msg = PoseWithCovariance()
-		msg.pose.position.x = self.ballloc_xyz[0]
-		msg.pose.position.y = self.ballloc_xyz[1]
-		msg.pose.position.z = self.ballloc_xyz[2]
-		msg.covariance[0] = self.error
-		msg.covariance[8] = self.error
-		msg.covariance[15] = self.error
+		msg.pose.position.x = x
+		msg.pose.position.y = y
+		msg.pose.position.z = z
 		# msg.covariance[15] = 0.0
 		self.pos_pub.publish(msg)
 
@@ -551,6 +548,7 @@ def init():
 			"ascii"), weight_path.encode("ascii"), 0, 1)  # batch size = 1
 	if metaMain is None:
 		metaMain = load_meta(meta_path.encode("ascii"))
+	print("made it")
 	if altNames is None:
 		# In thon 3, the metafile default access craps out on Windows (but not Linux)
 		# Read the names file and create a list to feed to detect
@@ -574,7 +572,6 @@ def init():
 		except Exception:
 			pass
 		
-	color_array = generate_color(meta_path)
 
 
 	#cam.close()
@@ -583,7 +580,6 @@ def init():
 
 
 if __name__ == "__main__":
-	print("here")
 	rospy.init_node("door_detect")
 	tracker = Tracker3D()
 	rate = rospy.Rate(50)
@@ -621,6 +617,9 @@ if __name__ == "__main__":
 				print("x", x)
 				print("y", y)
 				print("z",z)
+				if(label == "handle"):
+					tracker.pub_xyz(x , y, z)
+					
 				distance = math.sqrt(x * x + y * y + z * z)
 				distance = "{:.2f}".format(distance)
 				cv2.rectangle(image, (x_coord - thickness, y_coord - thickness),
