@@ -1,4 +1,4 @@
-#! /usr/bin/env python
+#! /usr/bin/env python3
 
 import math
 from enum import Enum, auto
@@ -12,6 +12,7 @@ import tf_conversions
 import actionlib
 from actionlib_msgs.msg import *
 from move_base_msgs.msg import MoveBaseAction, MoveBaseGoal
+from ur_interface import end_effector
 
 
 class States(Enum):
@@ -31,6 +32,7 @@ class Arm:
         self.ee_pose_goals_pub = rospy.Publisher(
             '/relaxed_ik/ee_pose_goals', EEPoseGoals, queue_size=10)
         self.seq = 0
+        self.ee = end_effector()
 
     def send_goal(self, x, y, z, seq, x_q=0, y_q=0, z_q=0):
         ee_pose = Pose()
@@ -125,7 +127,7 @@ if __name__ == "__main__":
             door_width = 1.01  # rospy.wait_for_message("door_width", Float32)
             distance_to_base = 0.4
             door_pose = [handle_pose[0], handle_pose[1] +
-                         0.13, handle_pose[2]]  # TODO: Fix this
+                         door_width-handle_to_hinge, handle_pose[2]]  # TODO: Fix this
 
             # Create handle arc
             handle_arc = create_arc(handle_pose, handle_to_hinge, num_angles)
@@ -141,6 +143,8 @@ if __name__ == "__main__":
                 if angles[i] >= collision_angle:
                     collision_index = i-1  # maybe don't need -1
                     break
+            rospy.loginfo("Door will collide at " +
+                          str(collision_angle)+" / at index "+str(collision_index))
 
             # Start move_base stuff
             client = actionlib.SimpleActionClient('move_base', MoveBaseAction)
@@ -152,42 +156,65 @@ if __name__ == "__main__":
 
             rospy.loginfo("Done planning")
             arm.state = States.MOVE_TO_HANDLE
+
         elif arm.state == States.MOVE_TO_HANDLE:
             rospy.loginfo("Grabbing handle")
             # Move EE to right above handle to be able to hook handle
             arm.send_goal(
                 handle_arc[0][0], handle_arc[0][1], handle_arc[0][2]+0.1)
+            rospy.sleep(10)
+
             # Move EE to first arc point
             arm.send_goal(*handle_arc[0])
+            rospy.sleep(2)
+
             arm.state = States.UNLATCH
+
         elif arm.state == States.UNLATCH:
             rospy.loginfo("Unlatching")
             # Rotate EE Clockwise
             arm.send_goal(*handle_arc[0], y_q=math.pi/2)
+            rospy.sleep(2)
+
             arm.state = States.PULL
+
         elif arm.state == States.PULL:
             rospy.loginfo("Pulling")
             # Follow trajectory before collision angle
             for i in range(collision_index):
                 arm.send_goal(*handle_arc[i], y_q=math.pi/2)
+                rospy.sleep(0.5)
             rospy.loginfo("Pull completed")
             arm.state = States.MOVE_AROUND
+
         elif arm.state == States.MOVE_AROUND:
             rospy.loginfo("Unhooking")
             # Unhook EE from handle
             arm.send_goal(handle_arc[collision_index-1][0], handle_arc[collision_index-1]
                           [1], handle_arc[collision_index-1][2]+0.1, y_q=-math.pi/2)
+            rospy.sleep(2)
+
+            # Home arm
+            arm.ee.send_to_home()
+            rospy.sleep(10)
+            arm.ee.send_transforms()
+
             # Move to other side of door
             rospy.loginfo("Starting base movement")
-            client.send_goal(generate_goal(1.0, 0.0, frame="map"))
+            client.send_goal(generate_goal(1.0, 0.0, -90, frame="map"))
+            client.wait_for_result()
             arm.state = States.PUSH
+
         elif arm.state == States.PUSH:
             rospy.loginfo("Pushing")
             # Follow remaining trajectory pushing parallel to ground
             for i in range(collision_index, len(angles)):
                 arm.send_goal(handle_arc[i][0], handle_arc[i]
                               [1], handle_arc[i][2]-0.3)  # TODO: use the z component of ur_base
+                rospy.sleep(0.5)
+
             arm.state = States.DONE
+
         elif arm.state == States.DONE:
             rospy.signal_shutdown("Done")
         rospy.sleep(5)
