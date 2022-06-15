@@ -62,12 +62,7 @@ class end_effector():
     def send_to_home(self):
         msg = JointTrajectory()
         point = JointTrajectoryPoint()
-        point.positions = [-2.617993878,
-                           -0.5235987756,
-                           -1.570796327,
-                           0.0,
-                           1.570796327,
-                           0.0]
+        point.positions = self.home
         point.velocities = []
         point.accelerations = []
         point.effort = []
