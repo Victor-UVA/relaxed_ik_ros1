@@ -1,3 +1,5 @@
+#!/usr/bin/python3
+
 import rospy
 from arm_class import Arm
 
@@ -10,6 +12,7 @@ CLOSER = -1
 
 if __name__ == "main":
     rospy.init_node("arm_mapping_movement")
+    
     rate = rospy.Rate(5)
     x_direction = 0
     y_direction = 0
