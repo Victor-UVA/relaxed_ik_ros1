@@ -1,5 +1,6 @@
 #! /usr/bin/env python3
 
+from audioop import lin2adpcm
 import math
 from enum import Enum, auto
 import numpy as np
@@ -61,7 +62,7 @@ class Arm:
 
 def create_arc(start_pose, radius, resolution, offset =0):
     trajectory = []
-    angles = np.linspace(0, 90, resolution)
+    angles = np.linspace(0, 85, resolution)
     for angle in angles:
         trajectory.append([start_pose[0] + offset - radius*math.cos(angle*math.pi/180),
                            start_pose[1] - radius*math.sin(angle*math.pi/180), start_pose[2]])
@@ -112,23 +113,23 @@ if __name__ == "__main__":
     arm = Arm()
     handle_arc = []
     rate = rospy.Rate(5)
-    num_angles = 180
+    num_angles = 150
     collision_index = 0
     while not rospy.is_shutdown():
         if arm.state == States.PLANNING:
             rospy.loginfo("Planning")
             # Get position of handle relative to camera frame
             # handle_pose = rospy.wait_for_message("camera/handle_pose", Pose)
+            distance_to_base = 0.64
 
             # Transform to world/map frame and then to arm start pose
-            handle_pose = [-0.135, 0.532, 0.14]  # pose_lookup(
+            handle_pose = [-0.153, distance_to_base-0.12, 0.13]  # pose_lookup(
             # "ur_arm_starting_pose", "camera/handle_pose")  # frame
 
             # Get dimensions of door and distance to base
             handle_to_hinge = 0.88  # rospy.wait_for_message(
             # "handle_to_hinge", Float32)
             door_width = 1.01  # rospy.wait_for_message("door_width", Float32)
-            distance_to_base = 0.715
             door_pose = [handle_pose[0], handle_pose[1] +
                          door_width-handle_to_hinge, handle_pose[2]]  # TODO: Fix this
 
@@ -176,7 +177,7 @@ if __name__ == "__main__":
         elif arm.state == States.UNLATCH:
             rospy.loginfo("Unlatching")
             # Rotate EE Clockwise
-            arm.send_goal(handle_arc[0][0], handle_arc[0][1], handle_arc[0][2]-0.065, y_q=math.pi/2)
+            arm.send_goal(handle_arc[0][0], handle_arc[0][1], handle_arc[0][2]-0.055, y_q=math.pi/2)
             rospy.sleep(2)
 
             arm.state = States.PULL #TODO: Reset
@@ -184,8 +185,9 @@ if __name__ == "__main__":
         elif arm.state == States.PULL:
             rospy.loginfo("Pulling")
             # Follow trajectory before collision angle
+            # angles = np.linspace()
             for i in range(collision_index):
-                arm.send_goal(handle_arc[i][0], handle_arc[i][1], handle_arc[i][2]-0.065, y_q=math.pi/2)
+                arm.send_goal(handle_arc[i][0], handle_arc[i][1], handle_arc[i][2]-0.055, y_q=math.pi/2)
                 rospy.sleep(0.25)
             rospy.loginfo("Pull completed")
             arm.state = States.MOVE_AROUND #TODO
@@ -199,16 +201,25 @@ if __name__ == "__main__":
 
             # Move to other side of door
             rospy.set_param('/move_base/DWAPlannerROS/', {
-            "xy_goal_tolerance": 0.1,
-            "yaw_goal_tolerance": 5*math.pi/180,
+                "xy_goal_tolerance": 0.05,
+                "yaw_goal_tolerance": 5*math.pi/180,
             })
             # http://wiki.ros.org/base_local_planner
             rospy.set_param('/move_base/TrajectoryPlannerROS/', {
-                "xy_goal_tolerance": 0.1,
+                "xy_goal_tolerance": 0.05,
                 "yaw_goal_tolerance": 5*math.pi/180,
             })
+
+            # Disable global costmap
+            rospy.set_param("/move_base/NavfnROS/", {
+                "cost_factor": 0.0,
+                "cost_neutral": 0.0
+            })
+
+            rospy.set_param("/move_base/local_costmap/inflation/inflation_radius", 0.001)
+
             rospy.loginfo("Starting base movement")
-            client.send_goal(generate_goal(-1.0, 0.0, 0, frame="map"))
+            client.send_goal(generate_goal(-0.6, 0.0, -330, frame="map"))
             client.wait_for_result()
 
             rospy.loginfo("Homing")
@@ -225,9 +236,8 @@ if __name__ == "__main__":
 
 
             # Move to other side of door
-            rospy.loginfo("20 seconds to move into position")
-            # rospy.sleep(20)
-            client.send_goal(generate_goal(0.6, 0.5, 45, frame="map"))
+            rospy.loginfo("Moving into position")
+            client.send_goal(generate_goal(0.68, 0.59, -37, frame="map"))
             client.wait_for_result()
             
             arm.state = States.PUSH
@@ -235,17 +245,25 @@ if __name__ == "__main__":
         elif arm.state == States.PUSH:
             rospy.loginfo("Pushing")
             arm.send_goal(handle_arc[collision_index][0], handle_arc[collision_index]
-                              [1]+0.3, handle_arc[collision_index][2]-0.2)  # TODO: use the z component of ur_base
+                              [1]+0.3, handle_arc[collision_index][2]-0.25)  # TODO: use the z component of ur_base
             rospy.sleep(5)
             # Follow remaining trajectory pushing parallel to ground
             for i in range(collision_index, len(angles)):
                 arm.send_goal(handle_arc[i][0], handle_arc[i]
-                              [1], handle_arc[i][2]-0.2)  # TODO: use the z component of ur_base
-                rospy.sleep(0.5)
+                              [1]+0.3, handle_arc[i][2]-0.3)  # TODO: use the z component of ur_base
+                rospy.sleep(0.2)
 
-            arm.state = States.DONE
+            arm.state = States.ENTER
 
-        elif arm.state == States.DONE:
+        elif arm.state == States.ENTER:
+            rospy.loginfo("Homing")
+            arm.send_goal(0,0,0)
+            rospy.sleep(10)
+
+            rospy.loginfo("Entering room")
+            client.send_goal(generate_goal(2.5, -0.2, frame="map"))
+            client.wait_for_result()
+
             rospy.signal_shutdown("Done")
         rospy.sleep(5)
         # rate.sleep()
