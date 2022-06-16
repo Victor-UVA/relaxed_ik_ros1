@@ -2,7 +2,7 @@ import rospy
 from relaxed_ik_ros1.msg import EEPoseGoals
 from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
 from geometry_msgs.msg import Pose
-import tf_conversions
+import transformations as T
 import tf_functions
 import numpy as np
 from se3_conversion import msg_to_se3
@@ -20,7 +20,6 @@ class Arm:
         self.y = 0
         self.seq = 0
         self.home = home
-
         # UR Interface
         # rospy.loginfo("Initializing UR Interface...")
         # self.ee = end_effector(home)
@@ -37,8 +36,7 @@ class Arm:
         t_desired = np.array([x],
                              [y],
                              [z])
-        R_desired = tf_conversions.transformations.euler_matrix(
-            roll, pitch, yaw)  # np.eye(3)
+        R_desired = T.euler_matrix(roll, pitch, yaw)  # np.eye(3)
 
         desired = np.block([R_desired, t_desired], [0, 0, 0, 1])
 
@@ -50,7 +48,7 @@ class Arm:
         t_final = final_state[:, 3][:3]
         R_final = final_state[:3, :3]
 
-        q = tf_conversions.transformations.quaternion_from_matrix(R_final)
+        q = T.quaternion_from_matrix(R_final)
 
         ee_pose = Pose()
         ee_pose_goal = EEPoseGoals()
@@ -61,10 +59,6 @@ class Arm:
         ee_pose.orientation.x = float(q[0])
         ee_pose.orientation.y = float(q[1])
         ee_pose.orientation.z = float(q[2])
-
-        # with orientation (w, x, y, z) = ")
-        # rospy.loginfo("Moving arm to position (" +
-        #               str(x)+", "+str(y)+", "+str(z)+")")
 
         ee_pose_goal.ee_poses.append(ee_pose)
         ee_pose_goal.header.seq = self.seq
@@ -93,3 +87,6 @@ class Arm:
                            'ur_arm_wrist_3_joint']
         msg.header.stamp.secs = 0
         self.angular_pose_pub.publish(msg)
+
+    def send_home(self):
+        self.send_joint_angles(*self.home)
