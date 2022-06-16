@@ -104,7 +104,6 @@ class Arm:
         point.velocities = []
         point.accelerations = []
         point.effort = []
-        point.time_from_start.secs = 5
         msg.points.append(point)
         msg.joint_names = ['ur_arm_elbow_joint',
                            'ur_arm_shoulder_lift_joint',
