@@ -13,7 +13,8 @@ from tf2_ros import StaticTransformBroadcaster
 
 
 class Arm:
-    def __init__(self, home):
+    # TODO: load from config file
+    def __init__(self, home=[-2.617993878, -0.5235987756, -1.570796327, 0.0, 1.570796327, 0.0]):
         self.ee_pose_goals_pub = rospy.Publisher(
             '/relaxed_ik/ee_pose_goals', EEPoseGoals, queue_size=10)
         self.angular_pose_pub = rospy.Publisher(
@@ -59,16 +60,15 @@ class Arm:
             rate.sleep()
 
     # TODO: choose between global and local frames
-    def send_goal(self, x, y, z, roll=0, pitch=0, yaw=0):
-        t_desired = np.array([x],
+    def send_goal(self, x, y, z, roll=0, pitch=0, yaw=0, frame="ur_arm_ee_link"):
+        t_desired = np.array([[x],
                              [y],
-                             [z])
+                             [z]])
         R_desired = T.euler_matrix(roll, pitch, yaw)  # np.eye(3)
 
-        desired = np.block([R_desired, t_desired], [0, 0, 0, 1])
-
+        desired = np.block([[R_desired, t_desired], [0, 0, 0, 1]])
         state_transform = pose_lookup(
-            "ur_arm_starting_pose", "ur_arm_ee_link")  # or ee_2_link?
+            "ur_arm_starting_pose", frame)  # or ee_2_link?
         state = msg_to_se3(state_transform)
 
         final_state = np.matmul(state, desired)
@@ -112,9 +112,12 @@ class Arm:
                            'ur_arm_wrist_1_joint',
                            'ur_arm_wrist_2_joint',
                            'ur_arm_wrist_3_joint']
-        msg.header.stamp.secs = 0
+        # TODO: figure out what this does and ask if we should use seq
+        # msg.header.stamp.secs = 0
+        msg.header.stamp = rospy.Time.now()
+
         error = np.abs(self.joint_command - self.joint_states)
-        w = np.array([2, 2, 2, 0.2, 0.2, 0.2])
+        w = np.array([2, 2, 2, 0.2, 0.2, 0.2])  # TODO: ask about these weights
         # TODO: make sure that it should be matmul
         weight = np.abs(np.sum(np.matmul(w, error)))
         point.time_from_start = rospy.Duration(max(weight, 0.5))
