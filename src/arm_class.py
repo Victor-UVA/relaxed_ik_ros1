@@ -4,12 +4,13 @@ from relaxed_ik_ros1.msg import EEPoseGoals
 from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
 from sensor_msgs.msg import JointState
 from relaxed_ik_ros1.msg import JointAngles
-from geometry_msgs.msg import Pose
+from geometry_msgs.msg import Pose, TransformStamped
 import transformations as T
 from tf_functions import pose_lookup, transform
 import numpy as np
 from se3_conversion import msg_to_se3
 from tf2_ros import StaticTransformBroadcaster
+from math import pi
 
 
 class Arm:
@@ -33,10 +34,13 @@ class Arm:
 
         # UR Interface
         rospy.loginfo("Initializing UR Interface...")
-        rospy.sleep(5)
+        rospy.sleep(10)
         rospy.loginfo("Homing...")
         self.send_to_home()
+        # wait until reaches home
+        
         rospy.sleep(8)
+        rospy.loginfo("Sending transforms")
         self.send_transforms()
         rospy.sleep(2)
         rospy.loginfo("Ready to begin tasks")
@@ -64,12 +68,17 @@ class Arm:
         t_desired = np.array([[x],
                              [y],
                              [z]])
-        R_desired = T.euler_matrix(roll, pitch, yaw)  # np.eye(3)
+        R_desired = np.eye(3) #T.euler_matrix(roll, pitch, yaw)[:3, :3]
 
         desired = np.block([[R_desired, t_desired], [0, 0, 0, 1]])
+        rospy.loginfo("Desired State: \n" +str(desired))
         state_transform = pose_lookup(
-            "ur_arm_starting_pose", frame)  # or ee_2_link?
+            "ur_arm_starting_pose", frame)
         state = msg_to_se3(state_transform)
+        # state = self.transform_to_se3(state_transform)
+
+        rospy.loginfo("Current State: \n" +str(state))
+
 
         final_state = np.matmul(state, desired)
         t_final = final_state[:, 3][:3]
@@ -77,6 +86,7 @@ class Arm:
 
         q = T.quaternion_from_matrix(R_final)
 
+        rospy.loginfo("Final State: \n" +str(final_state))
         ee_pose = Pose()
         ee_pose_goal = EEPoseGoals()
         ee_pose.position.x = float(t_final[0])
@@ -111,14 +121,15 @@ class Arm:
                            'ur_arm_wrist_1_joint',
                            'ur_arm_wrist_2_joint',
                            'ur_arm_wrist_3_joint']
-        # TODO: figure out what this does and ask if we should use seq
-        # msg.header.stamp.secs = 0
-        msg.header.stamp = rospy.Time.now()
-
-        error = np.abs(self.joint_command - self.joint_states)
+        
+        msg.header.stamp = rospy.Time.now() #TODO: maybe use seq
+        try:    
+            error = np.abs(self.joint_command - self.joint_states)
+        except:
+            error = np.ones(6)
         w = np.array([2, 2, 2, 0.2, 0.2, 0.2])  # TODO: ask about these weights
-        # TODO: make sure that it should be matmul
-        weight = np.abs(np.sum(np.matmul(w, error)))
+        # TODO: maybe should be multiply
+        weight = np.abs(np.sum(np.multiply(w, error)))
         point.time_from_start = rospy.Duration(max(weight, 0.5))
         # rospy.set_param('/scaled_vel_joint_traj_controller/constraints/goal_time',5*int(weight))
 
@@ -129,9 +140,33 @@ class Arm:
 
     def send_transforms(self):
         broadcaster = StaticTransformBroadcaster()
-        ee_link = transform(pose_lookup("ur_arm_wrist_2_link", "ur_arm_flange"),
-                            "ur_arm_wrist_2_link", "ur_arm_ee_link", 0, -1.5707, 1.5707)
-        starting_pose = transform(pose_lookup(
-            "ur_arm_base_link", "ur_arm_flange"), "ur_arm_base_link", "ur_arm_starting_pose", 0, -1.5707, 3.14159)
+        flange_to_wrist = pose_lookup("ur_arm_wrist_2_link", "ur_arm_flange")
+        if flange_to_wrist is not None:
+            ee_link = transform(flange_to_wrist,
+                                "ur_arm_wrist_2_link", "ur_arm_ee_link", pi, 0, pi/2)
+        else:
+            ee_link = None
+            rospy.logwarn("No transform found from ur_arm _flange to ur_arm_wrist_2_link.")
+
+        flange_to_base = pose_lookup("ur_arm_base_link", "ur_arm_flange")
+        if flange_to_base is not None:
+            starting_pose = transform(flange_to_base, "ur_arm_base_link", "ur_arm_starting_pose", 0, 0, 0)
+        else:
+            starting_pose = None
+            rospy.logwarn("No transform found from ur_arm _flange to ur_arm_base_link.")
+
         if ee_link is not None and starting_pose is not None:
             broadcaster.sendTransform([ee_link, starting_pose])
+
+    # def transform_to_se3(self, transform_msg: TransformStamped): 
+    #     pose = transform_msg.transform.translation
+    #     rot = transform_msg.transform.rotation
+    #     rot_matrix = T.quaternion_matrix([rot.x, rot.y, rot.z, rot.w])
+    #     pose_matrix = np.array([[pose.x],
+    #                             [pose.y], 
+    #                             [pose.z]])
+    #     rot_matrix[:3, -1] = [pose_matrix]
+    #     rot_matrix[]
+    #     se3 = np.block([[rot_matrix, pose_matrix], [0, 0, 0, 1]])
+    #     return se3
+        
