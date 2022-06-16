@@ -45,6 +45,10 @@ class Arm:
         rospy.sleep(2)
         rospy.loginfo("Ready to begin tasks")
 
+        # rate = rospy.Rate(2)
+        # while not rospy.is_shutdown():
+        #     self.send_joint_command(*self.joint_command.tolist())
+        #     rate.sleep()
         thread_loop = threading.Thread(target=self.joint_command_loop)
         thread_loop.start()
 
@@ -52,6 +56,8 @@ class Arm:
         joint_angles = np.array(data.angles.data)
         self.joint_command[0:3] = np.flip(joint_angles)[3:]
         self.joint_command[3:] = joint_angles[3:]
+        # self.send_joint_command(*self.joint_command.tolist())
+
 
     def js_cb(self, data):
         time = rospy.Time.now()
@@ -64,16 +70,17 @@ class Arm:
             rate.sleep()
 
     # TODO: choose between global and local frames
-    def send_goal(self, x, y, z, roll=0, pitch=0, yaw=0, frame="ur_arm_ee_link"):
+    def send_goal(self, x, y, z, roll=0, pitch=0, yaw=0, frame="ur_arm_flange"):
         t_desired = np.array([[x],
                              [y],
                              [z]])
-        R_desired = np.eye(3) #T.euler_matrix(roll, pitch, yaw)[:3, :3]
+        R_desired = np.array([[-1, 0,0],[0,-1,0],[0,0,1]])#np.eye(3) #T.euler_matrix(roll, pitch, yaw)[:3, :3]
 
         desired = np.block([[R_desired, t_desired], [0, 0, 0, 1]])
         rospy.loginfo("Desired State: \n" +str(desired))
         state_transform = pose_lookup(
             "ur_arm_starting_pose", frame)
+        rospy.loginfo(str(state_transform))
         state = msg_to_se3(state_transform)
         # state = self.transform_to_se3(state_transform)
 
@@ -140,13 +147,12 @@ class Arm:
 
     def send_transforms(self):
         broadcaster = StaticTransformBroadcaster()
-        flange_to_wrist = pose_lookup("ur_arm_wrist_2_link", "ur_arm_flange")
-        if flange_to_wrist is not None:
-            ee_link = transform(flange_to_wrist,
-                                "ur_arm_wrist_2_link", "ur_arm_ee_link", pi, 0, pi/2)
-        else:
-            ee_link = None
-            rospy.logwarn("No transform found from ur_arm _flange to ur_arm_wrist_2_link.")
+        ee_link_pose = TransformStamped()
+        # flange_to_wrist = pose_lookup("ur_arm_wrist_2_link", "ur_arm_flange")
+        ee_link = transform(ee_link_pose, "ur_arm_flange", "ur_arm_ee_link", pi, 0, 0)
+        # else:
+        #     ee_link = None
+        #     rospy.logwarn("No transform found from ur_arm _flange to ur_arm_wrist_2_link.")
 
         flange_to_base = pose_lookup("ur_arm_base_link", "ur_arm_flange")
         if flange_to_base is not None:
@@ -165,8 +171,8 @@ class Arm:
     #     pose_matrix = np.array([[pose.x],
     #                             [pose.y], 
     #                             [pose.z]])
-    #     rot_matrix[:3, -1] = [pose_matrix]
-    #     rot_matrix[]
-    #     se3 = np.block([[rot_matrix, pose_matrix], [0, 0, 0, 1]])
-    #     return se3
+    #     rot_matrix[0:3, 3] = pose_matrix
+    #     # rot_matrix[3, :] = [0,0,0,1]
+    #     # se3 = np.block([[rot_matrix, pose_matrix], [0, 0, 0, 1]])
+    #     return rot_matrix
         
