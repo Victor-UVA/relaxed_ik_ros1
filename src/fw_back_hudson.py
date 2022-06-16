@@ -8,7 +8,7 @@ z_stride = 0.001
 FARTHER = 1
 CLOSER = -1
 
-if __name__ == "main":
+if __name__ == "__main__":
     rospy.init_node("arm_mapping_movement")
     rate = rospy.Rate(5)
     x_direction = 0
