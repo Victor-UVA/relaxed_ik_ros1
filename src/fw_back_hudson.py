@@ -26,7 +26,7 @@ if __name__ == "__main__":
 
     if not rospy.is_shutdown():
         # Set arm to home position of 90 degrees
-        arm.send_home()
+        arm.send_to_home()
         rospy.sleep(5)
     while not rospy.is_shutdown():
         # Move forward and back based on direction parameter

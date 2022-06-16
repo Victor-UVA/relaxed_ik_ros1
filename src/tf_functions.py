@@ -1,10 +1,10 @@
 import rospy
 import tf2_ros
-import geometry_msgs.msg
+from geometry_msgs.msg import TransformStamped
 from tf.transformations import quaternion_from_euler
 
 
-def pose_lookup(self, parent, child):
+def pose_lookup(parent, child):
     tfBuffer = tf2_ros.Buffer()
     listener = tf2_ros.TransformListener(tfBuffer)
 
@@ -17,8 +17,8 @@ def pose_lookup(self, parent, child):
         rospy.sleep(5)
 
 
-def transform(self, pose, parent, child, x, y, z):
-    static_transformStamped = geometry_msgs.msg.TransformStamped()
+def transform(pose, parent, child, x, y, z):
+    static_transformStamped = TransformStamped()
 
     static_transformStamped.header.stamp = rospy.Time.now()
     static_transformStamped.header.frame_id = parent
