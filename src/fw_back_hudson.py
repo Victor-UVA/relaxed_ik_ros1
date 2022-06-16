@@ -5,7 +5,7 @@ import rospy
 from arm_class import Arm
 
 x_stride = 0.005
-y_stride = 0.001
+y_stride = 0.005
 z_stride = 0.001
 
 FARTHER = 1
@@ -30,7 +30,7 @@ if __name__ == "__main__":
     while not rospy.is_shutdown():
         # Move forward and back based on direction parameter
         for i in range(50):
-            arm.send_goal(x_stride, 0.0, 0.0)
+            arm.send_goal(0.0, y_stride, 0.0)
             rospy.sleep(0.5)
         arm.send_goal(0.0, 0.0, 0.0)
         rospy.sleep(10)
