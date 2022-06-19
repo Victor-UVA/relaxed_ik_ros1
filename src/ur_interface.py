@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 from __future__ import print_function
 import rospy
-from trajectory_msgs.msg import JointTrajectoryPoint
-from trajectory_msgs.msg import JointTrajectory
+from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
 from sensor_msgs.msg import JointState
 # from relaxed_ik_node import JointAngles
 from relaxed_ik_ros1.msg import JointAngles
@@ -14,7 +13,12 @@ import tf_conversions
 
 
 class end_effector():
-    def __init__(self):
+    def __init__(self, home=[-2.617993878,
+                             -0.5235987756,
+                             -1.570796327,
+                             0.0,
+                             1.570796327,
+                             0.0]):
         self.angular_pose_pub = rospy.Publisher(
             "ur/ur_arm_scaled_pos_joint_traj_controller/command", JointTrajectory, queue_size=10)
         self.joint_states_sub = rospy.Subscriber(
@@ -23,12 +27,8 @@ class end_effector():
             "relaxed_ik/joint_angle_solutions", JointAngles, self.rik_ja_cb)
         self.joint_states = np.zeros(6)
         self.init_state = np.zeros(6)
-        self.joint_command = np.array([-2.617993878,
-                                       -0.5235987756,
-                                       -1.570796327,
-                                       0.0,
-                                       1.570796327,
-                                       0.0])
+        self.home = home
+        self.joint_command = np.array(home)
 
         # [-1.2,
         # -0.38,
@@ -62,12 +62,7 @@ class end_effector():
     def send_to_home(self):
         msg = JointTrajectory()
         point = JointTrajectoryPoint()
-        point.positions = [-2.617993878,
-                           -0.5235987756,
-                           -1.570796327,
-                           0.0,
-                           1.570796327,
-                           0.0]
+        point.positions = self.home
         point.velocities = []
         point.accelerations = []
         point.effort = []
@@ -206,7 +201,7 @@ if __name__ == '__main__':
     ee = end_effector()
     # ee.initialize_state()           # Get initial State
     rospy.sleep(5)                    # Wait for 5 seconds
-    ee.send_to_home()               # send to home position
+    ee.send_to_home()                 # send to home position
     rospy.sleep(8)                    # Wait for 5 seconds
     rate = rospy.Rate(2)
     ee.send_transforms()
