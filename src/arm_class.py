@@ -1,6 +1,5 @@
 # Author: Hudson Burke
 
-import threading
 import rospy
 from relaxed_ik_ros1.msg import EEPoseGoals
 from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
@@ -11,12 +10,13 @@ import transformations as T
 from tf_functions import pose_lookup, transform
 import numpy as np
 from tf2_ros import StaticTransformBroadcaster
+import threading
 import yaml
 
 
 class Arm:
     # TODO: load from config file
-    def __init__(self, config_file_name: str, is_path_to_file=False, home=[-2.617993878, -0.5235987756, -1.570796327, 0.0, 1.570796327, 0.0]):
+    def __init__(self, config_file_name: str, is_path_to_file=False):
         self.ee_pose_goals_pub = rospy.Publisher(
             '/relaxed_ik/ee_pose_goals', EEPoseGoals, queue_size=10)
         self.angular_pose_pub = rospy.Publisher(
@@ -48,6 +48,7 @@ class Arm:
         self.joint_states = np.zeros(6)
         self.init_state = np.zeros(6)
         self.joint_command = self.home
+        self.listen_to_rik = False
 
         # UR Interface
         rospy.loginfo("Initializing UR Interface...")
@@ -59,32 +60,16 @@ class Arm:
         rospy.loginfo("Sending transforms")
         self.send_transforms()
         rospy.sleep(1)
-        # clear the relaxed_ik commands
-        # self.clear_goal()
-        self.send_to_home()
-        rospy.sleep(1)
         rospy.loginfo("Ready to begin tasks")
 
         thread_loop = threading.Thread(target=self.joint_command_loop)
         thread_loop.start()
 
-    def set_as_home(self, save_to_config_file=False):
-        self.home = self.joint_command
-
-        if save_to_config_file:
-            new_home = np.zeros(6)
-            new_home[:3] = np.flip(self.home)[:3]
-            new_home[3:] = self.home[3:]
-            with open(self.path) as f:
-                file = yaml.safe_load(f)
-            file['starting_config'] = new_home
-            with open(self.path, 'w') as f:
-                yaml.dump(file, f)
-
     def rik_ja_cb(self, data):
-        joint_angles = np.array(data.angles.data)
-        self.joint_command[0:3] = np.flip(joint_angles)[3:]
-        self.joint_command[3:] = joint_angles[3:]
+        if self.listen_to_rik:
+            joint_angles = np.array(data.angles.data)
+            self.joint_command[0:3] = np.flip(joint_angles)[3:]
+            self.joint_command[3:] = joint_angles[3:]
 
     def js_cb(self, data):
         self.joint_states = np.array(data.position)
@@ -129,6 +114,7 @@ class Arm:
         ee_pose_goal.header.seq = self.seq
         self.ee_pose_goals_pub.publish(ee_pose_goal)
         self.seq += 1
+        self.listen_to_rik = True
 
     def send_joint_command(self, elbow, lift, pan, wrist1, wrist2, wrist3):
         msg = JointTrajectory()
@@ -159,22 +145,27 @@ class Arm:
         # TODO: maybe should be matmul
         weight = np.abs(np.sum(np.multiply(w, error)))
         point.time_from_start = rospy.Duration(max(weight, 1.0))
-
+        self.listen_to_rik = False
         self.angular_pose_pub.publish(msg)
+
+    def set_as_home(self, save_to_config_file=False):
+        self.home = self.joint_command
+
+        if save_to_config_file:
+            new_home = np.zeros(6)
+            new_home[:3] = np.flip(self.home)[:3]
+            new_home[3:] = self.home[3:]
+            with open(self.path) as f:
+                file = yaml.safe_load(f)
+            file['starting_config'] = new_home
+            with open(self.path, 'w') as f:
+                yaml.dump(file, f)
 
     def send_to_home(self):
         self.send_joint_command(*self.home)
 
     def initial_home(self):
         self.send_joint_command(*self.home)
-
-    def clear_goal(self):
-        blank = EEPoseGoals()
-        blank_pose = Pose()
-        blank.ee_poses.append(blank_pose)
-        blank.header.seq = self.seq
-        self.ee_pose_goals_pub.publish(blank)  # punch relaxed_ik
-        self.seq += 1
 
     def send_transforms(self):
         broadcaster = StaticTransformBroadcaster()

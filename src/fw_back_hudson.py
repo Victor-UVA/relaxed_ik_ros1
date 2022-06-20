@@ -18,15 +18,17 @@ if __name__ == "__main__":
     x_direction = 0
     y_direction = 0
     z_direction = 0
-    arm = Arm()#home=[-2.53073, -1.570796327, -3.14159265359, 0.959931, 1.570796327, 0.0])
+    # home=[-2.53073, -1.570796327, -3.14159265359, 0.959931, 1.570796327, 0.0])
+    arm = Arm()
     while not rospy.is_shutdown():
         # Move forward and back based on direction parameter
-        # break
         arm.send_goal(x_stride, 0.0, 0.0)
         rospy.sleep(5)
         arm.send_goal(0.0, y_stride, 0.0)
         rospy.sleep(5)
         arm.send_goal(0.0, 0.0, z_stride)
+        rospy.sleep(5)
+        arm.send_to_home()
         rospy.sleep(5)
         break
         arm.send_goal(x_stride, 0.0, 0.0, frame="ur_arm_starting_pose")
