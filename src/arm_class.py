@@ -26,20 +26,16 @@ class Arm:
         self.relaxed_ik_joint_angles = rospy.Subscriber(
             "/relaxed_ik/joint_angle_solutions", JointAngles, self.rik_ja_cb)
 
-        self.joint_states = np.zeros(6)
-        self.init_state = np.zeros(6)
-        self.joint_command = np.array(home)
-
         self.seq = 0
         if not is_path_to_file:
-            path = '../relaxed_ik_core/config/info_files/' + \
+            self.path = '../relaxed_ik_core/config/info_files/' + \
                 str(config_file_name)
         else:
-            path = config_file_name
+            self.path = config_file_name
 
         self.home = np.zeros(6)
         try:
-            with open(path) as f:
+            with open(self.path) as f:
                 file = yaml.safe_load(f)
                 starting_config = np.array(file['starting_config'])
                 self.home[:3] = np.flip(starting_config)[:3]
@@ -48,6 +44,10 @@ class Arm:
             rospy.logerr("Could not open file: " +
                          str(config_file_name)+" or has missing/invalid starting_config.")
             rospy.logerr("Home will be set to all zeros.")
+
+        self.joint_states = np.zeros(6)
+        self.init_state = np.zeros(6)
+        self.joint_command = self.home
 
         # UR Interface
         rospy.loginfo("Initializing UR Interface...")
@@ -67,6 +67,19 @@ class Arm:
 
         thread_loop = threading.Thread(target=self.joint_command_loop)
         thread_loop.start()
+
+    def set_as_home(self, save_to_config_file=False):
+        self.home = self.joint_command
+
+        if save_to_config_file:
+            new_home = np.zeros(6)
+            new_home[:3] = np.flip(self.home)[:3]
+            new_home[3:] = self.home[3:]
+            with open(self.path) as f:
+                file = yaml.safe_load(f)
+            file['starting_config'] = new_home
+            with open(self.path, 'w') as f:
+                yaml.dump(file, f)
 
     def rik_ja_cb(self, data):
         joint_angles = np.array(data.angles.data)
