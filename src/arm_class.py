@@ -11,12 +11,12 @@ import transformations as T
 from tf_functions import pose_lookup, transform
 import numpy as np
 from tf2_ros import StaticTransformBroadcaster
-from math import pi
+import yaml
 
 
 class Arm:
     # TODO: load from config file
-    def __init__(self, home=[-2.617993878, -0.5235987756, -1.570796327, 0.0, 1.570796327, 0.0]):
+    def __init__(self, config_file_name: str, is_path_to_file=False, home=[-2.617993878, -0.5235987756, -1.570796327, 0.0, 1.570796327, 0.0]):
         self.ee_pose_goals_pub = rospy.Publisher(
             '/relaxed_ik/ee_pose_goals', EEPoseGoals, queue_size=10)
         self.angular_pose_pub = rospy.Publisher(
@@ -31,9 +31,24 @@ class Arm:
         self.joint_command = np.array(home)
 
         self.seq = 0
-        self.home = home
+        if not is_path_to_file:
+            path = '../relaxed_ik_core/config/info_files/' + \
+                str(config_file_name)
+        else:
+            path = config_file_name
 
-        
+        self.home = np.zeros(6)
+        try:
+            with open(path) as f:
+                file = yaml.safe_load(f)
+                starting_config = np.array(file['starting_config'])
+                self.home[:3] = np.flip(starting_config)[:3]
+                self.home[3:] = starting_config[3:]
+        except:
+            rospy.logerr("Could not open file: " +
+                         str(config_file_name)+" or has missing/invalid starting_config.")
+            rospy.logerr("Home will be set to all zeros.")
+
         # UR Interface
         rospy.loginfo("Initializing UR Interface...")
         rospy.sleep(1)
@@ -50,7 +65,6 @@ class Arm:
         rospy.sleep(1)
         rospy.loginfo("Ready to begin tasks")
 
-
         thread_loop = threading.Thread(target=self.joint_command_loop)
         thread_loop.start()
 
@@ -58,7 +72,6 @@ class Arm:
         joint_angles = np.array(data.angles.data)
         self.joint_command[0:3] = np.flip(joint_angles)[3:]
         self.joint_command[3:] = joint_angles[3:]
-        
 
     def js_cb(self, data):
         self.joint_states = np.array(data.position)
@@ -88,7 +101,6 @@ class Arm:
 
         q = T.quaternion_from_matrix(final_state)
         # q = T.quaternion_from_matrix(R_final)
-
 
         ee_pose = Pose()
         ee_pose_goal = EEPoseGoals()
@@ -148,9 +160,9 @@ class Arm:
         blank_pose = Pose()
         blank.ee_poses.append(blank_pose)
         blank.header.seq = self.seq
-        self.ee_pose_goals_pub.publish(blank) # punch relaxed_ik
+        self.ee_pose_goals_pub.publish(blank)  # punch relaxed_ik
         self.seq += 1
-    
+
     def send_transforms(self):
         broadcaster = StaticTransformBroadcaster()
         ee_link_pose = TransformStamped()
@@ -158,7 +170,7 @@ class Arm:
         if flange_to_base is not None:
             rot = flange_to_base.transform.rotation
             ee_link = transform(ee_link_pose, "ur_arm_flange",
-                            "ur_arm_ee_link", rot.x, rot.y, rot.z, rot.w)
+                                "ur_arm_ee_link", rot.x, rot.y, rot.z, rot.w)
             starting_pose = transform(
                 flange_to_base, "ur_arm_base_link", "ur_arm_starting_pose", 0, 0, 0)
         else:
@@ -169,11 +181,11 @@ class Arm:
         if ee_link is not None and starting_pose is not None:
             broadcaster.sendTransform([ee_link, starting_pose])
 
-def transform_stamped_to_se3(msg : TransformStamped):
+
+def transform_stamped_to_se3(msg: TransformStamped):
     pose = msg.transform.translation
     rot = msg.transform.rotation
     t = np.array([[pose.x], [pose.y], [pose.z]])
     rot_matrix = T.quaternion_matrix([rot.w, rot.x, rot.y, rot.z])[:3, :3]
     se3 = np.block([[rot_matrix, t], [0, 0, 0, 1]])
     return se3
-
