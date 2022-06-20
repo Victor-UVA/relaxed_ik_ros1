@@ -4,9 +4,9 @@ from math import radians
 import rospy
 from arm_class import Arm
 
-x_stride = 0.01
-y_stride = 0.01
-z_stride = 0.01
+x_stride = 0.05
+y_stride = 0.05
+z_stride = 0.05
 
 FARTHER = 1
 CLOSER = -1
@@ -19,7 +19,7 @@ if __name__ == "__main__":
     y_direction = 0
     z_direction = 0
     # home=[-2.53073, -1.570796327, -3.14159265359, 0.959931, 1.570796327, 0.0])
-    arm = Arm()
+    arm = Arm(config_file_name="ur5e_info.yaml")
     while not rospy.is_shutdown():
         # Move forward and back based on direction parameter
         arm.send_goal(x_stride, 0.0, 0.0)
@@ -29,6 +29,8 @@ if __name__ == "__main__":
         arm.send_goal(0.0, 0.0, z_stride)
         rospy.sleep(5)
         arm.send_to_home()
+        rospy.sleep(5)
+        arm.send_goal(x_stride, y_stride, z_stride)
         rospy.sleep(5)
         break
         arm.send_goal(x_stride, 0.0, 0.0, frame="ur_arm_starting_pose")

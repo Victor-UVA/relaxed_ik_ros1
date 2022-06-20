@@ -12,23 +12,17 @@ import numpy as np
 from tf2_ros import StaticTransformBroadcaster
 import threading
 import yaml
+import rospkg
 
 
 class Arm:
-    # TODO: load from config file
-    def __init__(self, config_file_name: str, is_path_to_file=False):
-        self.ee_pose_goals_pub = rospy.Publisher(
-            '/relaxed_ik/ee_pose_goals', EEPoseGoals, queue_size=10)
-        self.angular_pose_pub = rospy.Publisher(
-            "ur/ur_arm_scaled_pos_joint_traj_controller/command", JointTrajectory, queue_size=10)
-        self.joint_states_sub = rospy.Subscriber(
-            "ur/joint_states", JointState, self.js_cb)
-        self.relaxed_ik_joint_angles = rospy.Subscriber(
-            "/relaxed_ik/joint_angle_solutions", JointAngles, self.rik_ja_cb)
-
+    def __init__(self, config_file_name: str, is_full_path_to_file=False):
         self.seq = 0
-        if not is_path_to_file:
-            self.path = '../relaxed_ik_core/config/info_files/' + \
+        
+        if not is_full_path_to_file:
+            rospack = rospkg.RosPack()
+            pkg_path = rospack.get_path('relaxed_ik_ros1')
+            self.path = str(pkg_path)+'/relaxed_ik_core/config/info_files/' + \
                 str(config_file_name)
         else:
             self.path = config_file_name
@@ -38,23 +32,33 @@ class Arm:
             with open(self.path) as f:
                 file = yaml.safe_load(f)
                 starting_config = np.array(file['starting_config'])
-                self.home[:3] = np.flip(starting_config)[:3]
+                self.home[:3] = np.flip(starting_config[:3])
                 self.home[3:] = starting_config[3:]
+                rospy.loginfo("Home is set to angles: "+str(self.home))
         except:
-            rospy.logerr("Could not open file: " +
-                         str(config_file_name)+" or has missing/invalid starting_config.")
+            rospy.logerr("Could not open file at: " +
+                         str(self.path)+" or has missing/invalid starting_config.")
             rospy.logerr("Home will be set to all zeros.")
 
         self.joint_states = np.zeros(6)
         self.init_state = np.zeros(6)
-        self.joint_command = self.home
+        self.joint_command = self.home.copy()
         self.listen_to_rik = False
+
+        self.ee_pose_goals_pub = rospy.Publisher(
+            '/relaxed_ik/ee_pose_goals', EEPoseGoals, queue_size=10)
+        self.angular_pose_pub = rospy.Publisher(
+            "ur/ur_arm_scaled_pos_joint_traj_controller/command", JointTrajectory, queue_size=10)
+        self.joint_states_sub = rospy.Subscriber(
+            "ur/joint_states", JointState, self.js_cb)
+        self.relaxed_ik_joint_angles = rospy.Subscriber(
+            "/relaxed_ik/joint_angle_solutions", JointAngles, self.rik_ja_cb)
 
         # UR Interface
         rospy.loginfo("Initializing UR Interface...")
         rospy.sleep(1)
         rospy.loginfo("Homing...")
-        self.initial_home()
+        self.send_to_home()
         # wait until reaches home
         rospy.sleep(10)
         rospy.loginfo("Sending transforms")
@@ -145,11 +149,10 @@ class Arm:
         # TODO: maybe should be matmul
         weight = np.abs(np.sum(np.multiply(w, error)))
         point.time_from_start = rospy.Duration(max(weight, 1.0))
-        self.listen_to_rik = False
         self.angular_pose_pub.publish(msg)
 
     def set_as_home(self, save_to_config_file=False):
-        self.home = self.joint_command
+        self.home = self.joint_command.copy()
 
         if save_to_config_file:
             new_home = np.zeros(6)
@@ -162,11 +165,10 @@ class Arm:
                 yaml.dump(file, f)
 
     def send_to_home(self):
-        self.send_joint_command(*self.home)
-
-    def initial_home(self):
-        self.send_joint_command(*self.home)
-
+        self.listen_to_rik = False
+        self.joint_command = self.home.copy()
+        self.send_joint_command(*self.home.tolist())
+    
     def send_transforms(self):
         broadcaster = StaticTransformBroadcaster()
         ee_link_pose = TransformStamped()
