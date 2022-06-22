@@ -60,7 +60,7 @@ class Arm:
         rospy.loginfo("Homing...")
         self.send_to_home()
         # wait until reaches home
-        rospy.sleep(10)
+        rospy.sleep(20)
         rospy.loginfo("Sending transforms")
         self.send_transforms()
         rospy.sleep(1)
