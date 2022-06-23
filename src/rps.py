@@ -8,7 +8,7 @@ from pyflycap2.interface import Camera
 
 
 class RPS:
-    def __init__(self, file_prefix: str, arm_config_file_name: str):
+    def __init__(self, num_pics: int, file_prefix: str, arm_config_file_name: str):
         # Tunable constants
         self.x_stride = 0.05  # m
         self.y_stride = 0.05  # m
@@ -22,6 +22,8 @@ class RPS:
         self.heightSteps = self.scanHeight / (self.fovY - 1)
         self.widthSteps = self.scanWidth / (self.fovZ - 1)
         self.file_prefix = file_prefix
+        self.num_pics = num_pics
+        self.current_pic_num = 0
         # Flags
         self.correct_distance = False
         # Initialize arm
@@ -48,14 +50,15 @@ class RPS:
         self.correct_distance = False
 
     def capture_pic(self):
-        num_pics = 8
         self.take_pics_pub.publish(Bool(True))
         rospy.wait_for_message("/rps/done", Bool)
         self.take_pics_pub.publish(Bool(False))
         # save pictures
-        for i in range(num_pics):
+        for i in range(self.num_pics):
             self.cam.read_next_image()
-            self.cam.save_current_image(self.file_prefix + "-" + str(i))
+            self.cam.save_current_image(
+                self.file_prefix + "-" + str(self.current_pic_num))
+            self.current_pic_num += 1
 
     def move_sequence(self):
         for i in range(self.widthSteps/2):  # traverse width
@@ -77,7 +80,7 @@ class RPS:
 if __name__ == "__main__":
     rospy.init_node("rps_control")
     rate = rospy.Rate(5)
-    rps = RPS(arm_config_file_name="ur5e_info.yaml")
+    rps = RPS(file_prefix="test", arm_config_file_name="ur5e_info.yaml")
     while not rospy.is_shutdown():
         if rps.correct_distance:
             rps.move_sequence()
