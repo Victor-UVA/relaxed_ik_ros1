@@ -60,7 +60,7 @@ class Arm:
         rospy.loginfo("Homing...")
         self.send_to_home()
         # wait until reaches home
-        rospy.sleep(20)
+        rospy.sleep(15)
         rospy.loginfo("Sending transforms")
         self.send_transforms()
         rospy.sleep(1)
@@ -173,8 +173,10 @@ class Arm:
         broadcaster = StaticTransformBroadcaster()
         ee_link_pose = TransformStamped()
         flange_to_base = pose_lookup("ur_arm_base_link", "ur_arm_flange")
+        base_rot = pose_lookup("ur_arm_flange", "ur_arm_base_link")
         if flange_to_base is not None:
-            rot = flange_to_base.transform.rotation
+            # rot = flange_to_base.transform.rotation
+            rot = base_rot.transform.rotation
             ee_link = transform(ee_link_pose, "ur_arm_flange",
                                 "ur_arm_ee_link", rot.x, rot.y, rot.z, rot.w)
             starting_pose = transform(
