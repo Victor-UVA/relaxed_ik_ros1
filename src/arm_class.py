@@ -79,7 +79,7 @@ class Arm:
         self.joint_states = np.array(data.position)
 
     def joint_command_loop(self):
-        rate = rospy.Rate(2)
+        rate = rospy.Rate(5)
         while not rospy.is_shutdown():
             self.send_joint_command(*self.joint_command.tolist())
             rate.sleep()

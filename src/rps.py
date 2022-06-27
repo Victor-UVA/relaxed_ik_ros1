@@ -7,6 +7,7 @@ from std_msgs.msg import Bool, Float64
 from pyflycap2.interface import Camera
 
 
+
 class RPS:
     def __init__(self, num_pics: int, file_prefix: str, arm_config_file_name: str):
         # Tunable constants
@@ -35,9 +36,9 @@ class RPS:
         self.take_pics_pub = rospy.Publisher(
             '/rps/take_pics', Bool, queue_size=1)
         # Initialize camera
-        # self.cam = Camera(index="")
-        # self.cam.connect()
-        # self.cam.set_drop_mode(drop=False)  # allow buffering
+        self.cam = Camera(index="")
+        self.cam.connect()
+        self.cam.set_drop_mode(drop=False)  # allow buffering
 
     def prox_cb(self, data: Float64):
         self.actual_distance = data.data/100  # converting from centimeters to meters
@@ -57,11 +58,11 @@ class RPS:
         self.take_pics_pub.publish(Bool(False))
         rospy.loginfo("Done taking pictures")
         # save pictures
-        # for i in range(self.num_pics):
-        #     self.cam.read_next_image()
-        #     self.cam.save_current_image(
-        #         self.file_prefix + "-" + str(self.current_pic_num))
-        #     self.current_pic_num += 1
+        for i in range(self.num_pics):
+            self.cam.read_next_image()
+            self.cam.save_current_image(
+                self.file_prefix + "-" + str(self.current_pic_num))
+            self.current_pic_num += 1
 
     def move_sequence(self):
         for i in range(round(self.widthSteps/2)):  # traverse width

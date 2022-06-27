@@ -13,7 +13,7 @@ CLOSER = -1
 if __name__ == "__main__":
     rospy.init_node("arm_mapping_movement")
 
-    rate = rospy.Rate(5)
+    rate = rospy.Rate(10)
     x_direction = 0
     y_direction = 0
     z_direction = 0
@@ -33,10 +33,11 @@ if __name__ == "__main__":
         if rospy.has_param("/direction"):
             x_direction = rospy.get_param("direction")
 
-        if x_direction == FARTHER:
-            arm_x = -x_stride
-        elif x_direction == CLOSER:
-            arm_x = x_stride
+        arm_x = -x_stride * x_direction
+        # if x_direction == FARTHER:
+        #     arm_x = -x_stride
+        # elif x_direction == CLOSER:
+        #     arm_x = x_stride
 
         if rospy.has_param("/move_up"):
             if rospy.get_param("/move_up"):

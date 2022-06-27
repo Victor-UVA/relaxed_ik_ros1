@@ -253,7 +253,7 @@ def main():
     # location = false
     
     seq = 1
-    rate = rospy.Rate(50)
+    rate = rospy.Rate(10)
 
     while not rospy.is_shutdown():
         closer,farther = find_constraints()
