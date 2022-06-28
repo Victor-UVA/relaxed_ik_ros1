@@ -1,6 +1,5 @@
 #! /usr/bin/env python3
 
-from audioop import lin2adpcm
 import math
 from enum import Enum, auto
 import numpy as np
@@ -38,9 +37,6 @@ class Arm:
     def send_goal(self, x, y, z, x_q=0, y_q=0, z_q=0):
         ee_pose = Pose()
         ee_pose_goal = EEPoseGoals()
-        # if math.sqrt(pow(x, 2)+pow(y, 2)+pow(z, 2)) > 0.85:
-        #     rospy.logwarn("Provided goal of (x = "+str(x)+", y = " +
-        #                   str(y)+", z = "+str(z)+") exceeds max arm reach.")
         ee_pose.position.x = x
         ee_pose.position.y = y
         ee_pose.position.z = z
@@ -51,8 +47,9 @@ class Arm:
         ee_pose.orientation.y = float(q[1])
         ee_pose.orientation.z = float(q[2])
 
-        rospy.loginfo("Moving arm to position (" +str(x)+", "+str(y)+", "+str(z)+")")# with orientation (w, x, y, z) = ")
-
+        # with orientation (w, x, y, z) = ")
+        rospy.loginfo("Moving arm to position (" +
+                      str(x)+", "+str(y)+", "+str(z)+")")
 
         ee_pose_goal.ee_poses.append(ee_pose)
         ee_pose_goal.header.seq = self.seq
@@ -60,7 +57,7 @@ class Arm:
         self.seq += 1
 
 
-def create_arc(start_pose, radius, resolution, offset =0):
+def create_arc(start_pose, radius, resolution, offset=0):
     trajectory = []
     angles = np.linspace(0, 85, resolution)
     for angle in angles:
@@ -92,7 +89,7 @@ def calculate_collision_angle(door_width, distance_from_door):
     sigma_theta = math.sqrt(
         pow(theta_deriv_d, 2)*pow(sigma_d, 2) + pow(theta_deriv_r, 2)*pow(sigma_r, 2))
     theta = theta_m + sigma_theta
-    return theta*180/math.pi # return degrees
+    return theta*180/math.pi  # return degrees
 
 
 def generate_goal(x, y, yaw=0.0, frame="map"):  # yaw in degrees
@@ -134,7 +131,8 @@ if __name__ == "__main__":
                          door_width-handle_to_hinge, handle_pose[2]]  # TODO: Fix this
 
             # Create handle arc
-            handle_arc = create_arc(handle_pose, handle_to_hinge, num_angles, offset=handle_to_hinge)
+            handle_arc = create_arc(
+                handle_pose, handle_to_hinge, num_angles, offset=handle_to_hinge)
 
             # Create door arc
             door_arc = create_arc(door_pose, door_width, num_angles)
@@ -177,20 +175,22 @@ if __name__ == "__main__":
         elif arm.state == States.UNLATCH:
             rospy.loginfo("Unlatching")
             # Rotate EE Clockwise
-            arm.send_goal(handle_arc[0][0], handle_arc[0][1], handle_arc[0][2]-0.055, y_q=math.pi/2)
+            arm.send_goal(handle_arc[0][0], handle_arc[0]
+                          [1], handle_arc[0][2]-0.055, y_q=math.pi/2)
             rospy.sleep(2)
 
-            arm.state = States.PULL #TODO: Reset
+            arm.state = States.PULL  # TODO: Reset
 
         elif arm.state == States.PULL:
             rospy.loginfo("Pulling")
             # Follow trajectory before collision angle
             # angles = np.linspace()
             for i in range(collision_index):
-                arm.send_goal(handle_arc[i][0], handle_arc[i][1], handle_arc[i][2]-0.055, y_q=math.pi/2)
+                arm.send_goal(handle_arc[i][0], handle_arc[i]
+                              [1], handle_arc[i][2]-0.055, y_q=math.pi/2)
                 rospy.sleep(0.25)
             rospy.loginfo("Pull completed")
-            arm.state = States.MOVE_AROUND #TODO
+            arm.state = States.MOVE_AROUND  # TODO
 
         elif arm.state == States.MOVE_AROUND:
             rospy.loginfo("Unhooking")
@@ -216,36 +216,31 @@ if __name__ == "__main__":
                 "cost_neutral": 0.0
             })
 
-            rospy.set_param("/move_base/local_costmap/inflation/inflation_radius", 0.001)
+            rospy.set_param(
+                "/move_base/local_costmap/inflation/inflation_radius", 0.001)
 
-            rospy.loginfo("Starting base movement")
-            client.send_goal(generate_goal(-0.6, 0.0, -330, frame="map"))
-            client.wait_for_result()
+            rospy.loginfo("Starting base movement (10 secs)")
+            # client.send_goal(generate_goal(-0.6, 0.0, -330, frame="map"))
+            # client.wait_for_result()
+            rospy.sleep(5)
 
             rospy.loginfo("Homing")
-            arm.send_goal(0,0,0)
+            # arm.send_goal(0, 0, 0)
+
             rospy.sleep(10)
 
-            # Home arm
-            # arm.ee.send_to_home()
-            # rospy.sleep(5)
-            # arm.ee.send_transforms()
-            # rospy.sleep(5)
-            # arm.ee.send_joint_command() 
-            # rospy.sleep(10)
-
-
             # Move to other side of door
-            rospy.loginfo("Moving into position")
-            client.send_goal(generate_goal(0.68, 0.59, -37, frame="map"))
-            client.wait_for_result()
-            
+            rospy.loginfo("Moving into position (15 secs)")
+            # client.send_goal(generate_goal(0.68, 0.59, -37, frame="map"))
+            # client.wait_for_result()
+            rospy.sleep(15)
+
             arm.state = States.PUSH
 
         elif arm.state == States.PUSH:
             rospy.loginfo("Pushing")
             arm.send_goal(handle_arc[collision_index][0], handle_arc[collision_index]
-                              [1]+0.3, handle_arc[collision_index][2]-0.25)  # TODO: use the z component of ur_base
+                          [1]+0.3, handle_arc[collision_index][2]-0.25)  # TODO: use the z component of ur_base
             rospy.sleep(5)
             # Follow remaining trajectory pushing parallel to ground
             for i in range(collision_index, len(angles)):
@@ -257,7 +252,7 @@ if __name__ == "__main__":
 
         elif arm.state == States.ENTER:
             rospy.loginfo("Homing")
-            arm.send_goal(0,0,0)
+            arm.send_goal(0, 0, 0)
             rospy.sleep(10)
 
             rospy.loginfo("Entering room")
