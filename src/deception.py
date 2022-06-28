@@ -2,7 +2,7 @@
 import rospy
 import smach
 import smach_ros
-
+from std_msgs.msg import Bool
 
 class DetectState(smach.State):
     def __init__(self):
@@ -10,7 +10,7 @@ class DetectState(smach.State):
         pass
 
     def execute(self, ud):
-        if rospy.wait_for_message('/transition').data:
+        if rospy.wait_for_message('/transition', Bool).data:
             return 'detected'
         else:
             return 'undetected'
@@ -22,7 +22,7 @@ class PlanState(smach.State):
         pass
 
     def execute(self, ud):
-        if rospy.wait_for_message('/transition').data:
+        if rospy.wait_for_message('/transition', Bool).data:
             return 'planned'
         else:
             return 'planning'
@@ -34,7 +34,7 @@ class ApproachState(smach.State):
         pass
 
     def execute(self, ud):
-        if rospy.wait_for_message('/transition').data:
+        if rospy.wait_for_message('/transition', Bool).data:
             return 'approached'
         else:
             return 'approaching'
@@ -46,7 +46,7 @@ class UnlatchState(smach.State):
         pass
 
     def execute(self, ud):
-        if rospy.wait_for_message('/transition').data:
+        if rospy.wait_for_message('/transition', Bool).data:
             return 'unlatched'
         else:
             return 'unlatching'
@@ -58,7 +58,7 @@ class PullState(smach.State):
         pass
 
     def execute(self, ud):
-        if rospy.wait_for_message('/transition').data:
+        if rospy.wait_for_message('/transition', Bool).data:
             return 'pulled'
         else:
             return 'pulling'
@@ -70,7 +70,7 @@ class DisengageState(smach.State):
         pass
 
     def execute(self, ud):
-        if rospy.wait_for_message('/transition').data:
+        if rospy.wait_for_message('/transition', Bool).data:
             return 'disengaged'
         else:
             return 'disengaging'
@@ -82,7 +82,7 @@ class PushState(smach.State):
         pass
 
     def execute(self, ud):
-        if rospy.wait_for_message('/transition').data:
+        if rospy.wait_for_message('/transition', Bool).data:
             return 'pushed'
         else:
             return 'pushing'
@@ -94,7 +94,7 @@ class EnterState(smach.State):
         pass
 
     def execute(self, ud):
-        if rospy.wait_for_message('/transition').data:
+        if rospy.wait_for_message('/transition', Bool).data:
             return 'entered'
         else:
             return 'entering'
@@ -124,7 +124,7 @@ def main():
             'disengaged': 'Push', 'disengaging': 'Disengage'})
         smach.StateMachine.add('Push', PushState(), transitions={
             'pushed': 'Enter', 'pushing': 'Push'})
-        smach.StateMachine.add('Enter', DetectState(), transitions={
+        smach.StateMachine.add('Enter', EnterState(), transitions={
             'entered': 'Done', 'entering': 'Enter'})
 
     sis = smach_ros.IntrospectionServer('server', sm, '/SM_ROOT')
