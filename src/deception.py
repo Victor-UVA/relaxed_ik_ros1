@@ -1,131 +1,105 @@
 #! /usr/bin/env python3
+from click import getchar
 import rospy
 import smach
 import smach_ros
-from std_msgs.msg import Bool
-
-class DetectState(smach.State):
-    def __init__(self):
-        smach.State.__init__(self, outcomes=['detected', 'detecting'])
-        pass
-
-    def execute(self, ud):
-        if rospy.wait_for_message('/transition', Bool).data:
-            return 'detected'
-        else:
-            return 'undetected'
 
 
 class PlanState(smach.State):
     def __init__(self):
         smach.State.__init__(self, outcomes=['planned', 'planning'])
-        pass
 
     def execute(self, ud):
-        if rospy.wait_for_message('/transition', Bool).data:
-            return 'planned'
-        else:
-            return 'planning'
-
-
-class ApproachState(smach.State):
-    def __init__(self):
-        smach.State.__init__(self, outcomes=['approached', 'approaching'])
-        pass
-
-    def execute(self, ud):
-        if rospy.wait_for_message('/transition', Bool).data:
-            return 'approached'
-        else:
-            return 'approaching'
-
-
-class UnlatchState(smach.State):
-    def __init__(self):
-        smach.State.__init__(self, outcomes=['unlatched', 'unlatching'])
-        pass
-
-    def execute(self, ud):
-        if rospy.wait_for_message('/transition', Bool).data:
-            return 'unlatched'
-        else:
-            return 'unlatching'
+        getchar()
+        return 'planned'
 
 
 class PullState(smach.State):
     def __init__(self):
         smach.State.__init__(self, outcomes=['pulled', 'pulling'])
-        pass
 
     def execute(self, ud):
-        if rospy.wait_for_message('/transition', Bool).data:
-            return 'pulled'
-        else:
-            return 'pulling'
-
-
-class DisengageState(smach.State):
-    def __init__(self):
-        smach.State.__init__(self, outcomes=['disengaged', 'disengaging'])
-        pass
-
-    def execute(self, ud):
-        if rospy.wait_for_message('/transition', Bool).data:
-            return 'disengaged'
-        else:
-            return 'disengaging'
+        getchar()
+        return 'pulled'
 
 
 class PushState(smach.State):
     def __init__(self):
         smach.State.__init__(self, outcomes=['pushed', 'pushing'])
-        pass
 
     def execute(self, ud):
-        if rospy.wait_for_message('/transition', Bool).data:
-            return 'pushed'
-        else:
-            return 'pushing'
+        getchar()
+        return 'pushed'
 
 
 class EnterState(smach.State):
     def __init__(self):
         smach.State.__init__(self, outcomes=['entered', 'entering'])
-        pass
 
     def execute(self, ud):
-        if rospy.wait_for_message('/transition', Bool).data:
-            return 'entered'
-        else:
-            return 'entering'
+        getchar()
+        return 'entered'
 
 
-# ["Detect", "Plan", "Approach",
-#  "Unlatch", "Pull", "Disengage", "Push", "Enter", "Done"]
+class PatrolState(smach.State):
+    def __init__(self):
+        smach.State.__init__(self, outcomes=['received task', 'patrolling'])
+
+    def execute(self, ud):
+        getchar()
+        return 'received task'
+
+
+class NavigateState(smach.State):
+    def __init__(self):
+        smach.State.__init__(
+            self, outcomes=['disinfection', 'manipulation', 'inspection'])
+
+    def execute(self, ud):
+        getchar()
+        return 'manipulation'
+
+
+class CompletedState(smach.State):
+    def __init__(self):
+        smach.State.__init__(self, outcomes=['completed'])
+
+    def execute(self, ud):
+        getchar()
+        return 'completed'
 
 
 def main():
     rospy.init_node("deception_state_machine")
 
-    sm = smach.StateMachine(outcomes=["Done"])
+    sm = smach.StateMachine(outcomes=[])
+    disinfection_sm = smach.StateMachine(outcomes=['completed'])
+    inspection_sm = smach.StateMachine(outcomes=['completed'])
+    manipulation_sm = smach.StateMachine(outcomes=['completed'])
+    welding_sm = smach.StateMachine(outcomes=['completed'])
+    open_door_sm = smach.StateMachine(outcomes=['completed'])
 
-    with sm:
-        smach.StateMachine.add('Detect', DetectState(), transitions={
-            'detected': 'Plan', 'detecting': 'Detect'})
+    with manipulation_sm:
         smach.StateMachine.add('Plan', PlanState(), transitions={
-            'planned': 'Approach', 'planning': 'Plan'})
-        smach.StateMachine.add('Approach', ApproachState(), transitions={
-            'approached': 'Unlatch', 'approaching': 'Approach'})
-        smach.StateMachine.add('Unlatch', UnlatchState(), transitions={
-            'unlatched': 'Pull', 'unlatching': 'Unlatch'})
+            'planned': 'Pull', 'planning': 'Plan'})
         smach.StateMachine.add('Pull', PullState(), transitions={
-            'pulled': 'Disengage', 'pulling': 'Pull'})
-        smach.StateMachine.add('Disengage', DisengageState(), transitions={
-            'disengaged': 'Push', 'disengaging': 'Disengage'})
+            'pulled': 'Push', 'pushing': 'Pull'})
         smach.StateMachine.add('Push', PushState(), transitions={
             'pushed': 'Enter', 'pushing': 'Push'})
         smach.StateMachine.add('Enter', EnterState(), transitions={
             'entered': 'Done', 'entering': 'Enter'})
+
+    with sm:
+        smach.StateMachine.add('Patrol', PatrolState(), transitions={
+            'received task': 'Navigate', 'patrolling': 'Patrol'})
+        smach.StateMachine.add('Navigate', NavigateState(), transitions={
+            'disinfection': 'Disinfection', 'manipulation': 'Manipulation', 'inspection': 'Inspection'})
+        smach.StateMachine.add('Disinfection', disinfection_sm,
+                               transitions={'completed': 'Patrol'})
+        smach.StateMachine.add('Manipulation', manipulation_sm,
+                               transitions={'completed': 'Patrol'})
+        smach.StateMachine.add('Inspection', inspection_sm,
+                               transitions={'completed': 'Patrol'})
 
     sis = smach_ros.IntrospectionServer('server', sm, '/SM_ROOT')
     sis.start()

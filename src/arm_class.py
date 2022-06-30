@@ -79,7 +79,7 @@ class Arm:
         self.joint_states = np.array(data.position)
 
     def joint_command_loop(self):
-        rate = rospy.Rate(2)
+        rate = rospy.Rate(50)
         while not rospy.is_shutdown():
             self.send_joint_command(*self.joint_command.tolist())
             rate.sleep()
@@ -144,11 +144,13 @@ class Arm:
         try:
             error = np.abs(self.joint_command - self.joint_states)
         except:
-            error = 5*np.ones(6)
+            error = 4*np.ones(6)
         w = np.array([3, 3, 3, 0.2, 0.2, 0.2])
         # TODO: maybe should be matmul
         weight = np.abs(np.sum(np.multiply(w, error)))
-        point.time_from_start = rospy.Duration(max(weight, 1.0))
+        # print(weight)
+        point.time_from_start = rospy.Duration(secs=max(weight, 0.5))
+        # print(point.time_from_start)
         self.angular_pose_pub.publish(msg)
 
     def set_as_home(self, save_to_config_file=False):

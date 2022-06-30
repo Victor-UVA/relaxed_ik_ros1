@@ -13,7 +13,7 @@ CLOSER = -1
 if __name__ == "__main__":
     rospy.init_node("arm_mapping_movement")
 
-    rate = rospy.Rate(5)
+    rate = rospy.Rate(50)
     x_direction = 0
     y_direction = 0
     z_direction = 0
