@@ -67,7 +67,7 @@ class Arm:
         rospy.loginfo("Ready to begin tasks")
 
         thread_loop = threading.Thread(target=self.joint_command_loop)
-        thread_loop.start()
+        # thread_loop.start()
 
     def rik_ja_cb(self, data):
         if self.listen_to_rik:
@@ -84,12 +84,14 @@ class Arm:
             self.send_joint_command(*self.joint_command.tolist())
             rate.sleep()
 
-    def send_goal(self, x, y, z, roll=0, pitch=0, yaw=0, frame="ur_arm_ee_link"):
+    def send_goal(self, x, y, z, rot_x=0, rot_y=0, rot_z=0, rot_w = None, frame="ur_arm_ee_link"):
         t_desired = np.array([[x],
                              [y],
                              [z]])
-        if roll != 0 or pitch != 0 or yaw != 0:
-            R_desired = T.euler_matrix(roll, pitch, yaw)[:3, :3]
+        if rot_w is not None:
+            R_desired = T.quaternion_matrix([rot_x, rot_y, rot_z, rot_w])[:3, :3]
+        elif rot_x != 0 or rot_y != 0 or rot_z != 0:
+            R_desired = T.euler_matrix(rot_x, rot_y, rot_z)[:3, :3]
         else:
             R_desired = np.eye(3)
         desired = np.block([[R_desired, t_desired], [0, 0, 0, 1]])
@@ -140,17 +142,50 @@ class Arm:
                            'ur_arm_wrist_2_joint',
                            'ur_arm_wrist_3_joint']
 
-        msg.header.stamp = rospy.Time.now()  # TODO: maybe use seq
+        msg.header.stamp = rospy.Time.now()
         try:
             error = np.abs(self.joint_command - self.joint_states)
         except:
             error = 4*np.ones(6)
-        w = np.array([3, 3, 3, 0.2, 0.2, 0.2])
+        w = np.array([2, 2, 2, 0.2, 0.2, 0.2])
         # TODO: maybe should be matmul
         weight = np.abs(np.sum(np.multiply(w, error)))
         # print(weight)
-        point.time_from_start = rospy.Duration(secs=max(weight, 0.5))
-        # print(point.time_from_start)
+        point.time_from_start = rospy.Duration(secs=max(weight, 0.15))
+        # rospy.loginfo(point.time_from_start)
+        self.angular_pose_pub.publish(msg)
+
+    def send_joint_velocity(self, elbow=0.0, lift=0.0, pan=0.0, wrist1=0.0, wrist2=0.0, wrist3=0.0):
+        self.listen_to_rik = False
+        msg = JointTrajectory()
+        point = JointTrajectoryPoint()
+        point.velocities = [elbow,
+                           lift,
+                           pan,
+                           wrist1,
+                           wrist2,
+                           wrist3]
+        point.positions = self.joint_states.tolist()
+        point.accelerations = []
+        point.effort = []
+        msg.points.append(point)
+        msg.joint_names = ['ur_arm_elbow_joint',
+                           'ur_arm_shoulder_lift_joint',
+                           'ur_arm_shoulder_pan_joint',
+                           'ur_arm_wrist_1_joint',
+                           'ur_arm_wrist_2_joint',
+                           'ur_arm_wrist_3_joint']
+
+        msg.header.stamp = rospy.Time.now()
+        try:
+            error = np.abs(self.joint_command - self.joint_states)
+        except:
+            error = 4*np.ones(6)
+        w = np.array([2, 2, 2, 0.2, 0.2, 0.2])
+        weight = np.abs(np.sum(np.multiply(w, error)))
+        # print(weight)
+        point.time_from_start = rospy.Duration(secs=max(weight, 0.15))
+        # rospy.loginfo(point.time_from_start)
         self.angular_pose_pub.publish(msg)
 
     def set_as_home(self, save_to_config_file=False):
@@ -165,6 +200,10 @@ class Arm:
             file['starting_config'] = new_home
             with open(self.path, 'w') as f:
                 yaml.dump(file, f)
+
+    def set_joint_command(self, command):
+        self.listen_to_rik = False
+        self.joint_command = np.array(command)
 
     def send_to_home(self):
         self.listen_to_rik = False

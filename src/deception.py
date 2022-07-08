@@ -83,11 +83,11 @@ def main():
         smach.StateMachine.add('Plan', PlanState(), transitions={
             'planned': 'Pull', 'planning': 'Plan'})
         smach.StateMachine.add('Pull', PullState(), transitions={
-            'pulled': 'Push', 'pushing': 'Pull'})
+            'pulled': 'Push', 'pulling': 'Pull'})
         smach.StateMachine.add('Push', PushState(), transitions={
             'pushed': 'Enter', 'pushing': 'Push'})
         smach.StateMachine.add('Enter', EnterState(), transitions={
-            'entered': 'Done', 'entering': 'Enter'})
+            'entered': 'completed', 'entering': 'Enter'})
 
     with sm:
         smach.StateMachine.add('Patrol', PatrolState(), transitions={

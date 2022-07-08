@@ -42,13 +42,17 @@ class States(Enum):
     ROTATE_HOME = auto()
     ROTATE_HOME_C = auto()
     STAY = auto()
+    HORIZONTALMID = auto()
 
 home = [87.75,-121.05,156.76,144.78,-88.07,-181.91]
-horizontal = [278.38, -55.29, 44.46, 254.44, -92.14, -184.06]
-hidden =[309.47, -24.64, 47.53, 161.57, -129.22, -265.65]
+horizontal = [170.37, -13.94, 78.56, 197.83, -88.11, -180.91]
+horizontalmid = [180.66,-78.00,121.49,197.07,-88.13,-180.91]
+hidden =[138.92,-20.35,16.05,224.77,-88.13,-180.91]
 high = [348.35, -54.53, 53.44, 177.91, -77.27, -180.45]
 rotate_home = [87.75,-121.05,156.76,144.78,-88.07,-181.91]
 state = States.HOME 
+
+
 
 
 class Arm:
@@ -249,6 +253,10 @@ def joyCB(data):
     elif data.axes[6] == -1.0:
         print("rotate_homeJCB clockwise")
         state = States.ROTATE_HOME_C
+    elif data.buttons[4] == 1: #left bumper
+        print("horizontal mid")
+        state = States.HORIZONTALMID
+
 
 def degree_to_radian(degree):
     return degree * (math.pi/180)
@@ -332,7 +340,7 @@ if __name__ == "__main__":
             wrist2 = degree_to_radian(high[4])
             wrist3 = degree_to_radian(high[5])
         elif state == States.ROTATE_HOME:
-            rospy.loginfo("rotate_home")
+            rospy.loginfo("rotate counterclockwise")
             rotate_counterclockwise()
             elbow = degree_to_radian(rotate_home[0])
             lift = degree_to_radian(rotate_home[1])
@@ -342,7 +350,7 @@ if __name__ == "__main__":
             wrist3 = degree_to_radian(rotate_home[5])
             state = States.STAY
         elif state == States.ROTATE_HOME_C:
-            rospy.loginfo("rotate_home")
+            rospy.loginfo("rotate clockwise")
             rotate_clockwise()
             elbow = degree_to_radian(rotate_home[0])
             lift = degree_to_radian(rotate_home[1])
@@ -351,6 +359,14 @@ if __name__ == "__main__":
             wrist2 = degree_to_radian(rotate_home[4])
             wrist3 = degree_to_radian(rotate_home[5])
             state = States.STAY
+        elif state == States.HORIZONTALMID:
+            rospy.loginfo("horizontal mid")
+            elbow = degree_to_radian(horizontalmid[0])
+            lift = degree_to_radian(horizontalmid[1])
+            pan = degree_to_radian(horizontalmid[2])
+            wrist1 = degree_to_radian(horizontalmid[3])
+            wrist2 = degree_to_radian(horizontalmid[4])
+            wrist3 = degree_to_radian(horizontalmid[5])
         elif state == States.STAY:
             rospy.loginfo("stay")
 
