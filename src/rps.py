@@ -12,7 +12,7 @@ class RPS:
         # Tunable constants
         self.x_stride = 0.05  # m
         self.y_stride = 0.003  # m
-        self.z_stride = 0.05 # m
+        self.z_stride = 0.05  # m
         self.desired_distance = 0.17  # m
         self.actual_distance = self.desired_distance
         self.tolerance = 0.01  # m
@@ -35,33 +35,33 @@ class RPS:
         self.take_pics_pub = rospy.Publisher(
             '/rps/take_pics', Bool, queue_size=1)
         # Initialize camera
-        # self.cam = Camera(index="")
-        # self.cam.connect()
-        # self.cam.set_drop_mode(drop=False)  # allow buffering
+        self.cam = Camera(serial=17371284)
+        self.cam.connect()
+        self.cam.set_drop_mode(drop=False)  # allow buffering
 
     def prox_cb(self, data: Float64):
         self.actual_distance = data.data/100  # converting from centimeters to meters
 
-
     def calibrate_distance(self):
-        self.arm.send_goal(0.0, self.actual_distance-self.desired_distance, 0.0)
-        
+        self.arm.send_goal(0.0, self.actual_distance -
+                           self.desired_distance, 0.0)
+
         # while self.actual_distance < self.desired_distance - self.tolerance or self.actual_distance > self.desired_distance + self.tolerance:
         #     self.arm.send_goal(0.0, self.actual_distance-self.desired_distance, 0.0)
         #     rospy.wait_for_message("/rps/arm_distance", Float64)
-    
+
     def capture_pic(self):
         self.take_pics_pub.publish(Bool(True))
         rospy.loginfo("Taking pictures")
-        # rospy.wait_for_message("/rps/done", Bool)
+        rospy.wait_for_message("/rps/done", Bool)
         self.take_pics_pub.publish(Bool(False))
         rospy.loginfo("Done taking pictures")
         # save pictures
-        # for i in range(self.num_pics):
-        #     self.cam.read_next_image()
-        #     self.cam.save_current_image(
-        #         self.file_prefix + "-" + str(self.current_pic_num))
-        #     self.current_pic_num += 1
+        for i in range(self.num_pics):
+            self.cam.read_next_image()
+            self.cam.save_current_image(
+                self.file_prefix + "-" + str(self.current_pic_num))
+            self.current_pic_num += 1
 
     def move_sequence(self):
         for i in range(round(self.widthSteps/2)):  # traverse width
@@ -83,9 +83,11 @@ class RPS:
 if __name__ == "__main__":
     rospy.init_node("rps_control")
     rate = rospy.Rate(2)
-    rps = RPS(num_pics=8, file_prefix="test", arm_config_file_name="ur5e_info.yaml")
+    rps = RPS(num_pics=8, file_prefix="test",
+              arm_config_file_name="ur5e_info.yaml")
     while not rospy.is_shutdown():
-        # rps.calibrate_distance()
+        rps.calibrate_distance()
+        rospy.sleep(5)
         rps.move_sequence()
-        
+
         rate.sleep()

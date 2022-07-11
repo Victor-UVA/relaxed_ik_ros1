@@ -1,0 +1,19 @@
+<launch>
+
+    <!-- <include file="$(find ur_robot_driver)/launch/ur5_bringup.launch">
+        <arg name="robot_ip"    value="192.168.1.3"/>
+        <arg name="kinematics_config"   value="$(rospack find ur_calibration)/etc/my_robot_calibration.yaml"/>
+    </include> -->
+<!-- 
+    roslaunch ur_robot_driver ur5_bringup.launch robot_ip:=192.168.1.3 kinematics_config:=$(rospack find ur_calibration)/etc/my_robot_calibration.yaml -->
+
+
+    <!--Relaxed IK and UR Interface-->
+    <include file="$(find relaxed_ik_ros1)/launch/relaxed_ik_rust.launch"/>
+
+    <param name="/simulation_time"  type="str"  value="go"/>
+
+    <node pkg="relaxed_ik_ros1"     type="yasir.py"     name="yasir" output="screen"/>
+
+    <node pkg="joy"     type="joy_node" name="joy"  output="screen"/>
+</launch>
